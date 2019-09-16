@@ -6,6 +6,8 @@ from flask import Flask
 from werkzeug.serving import run_simple
 from flask import request, jsonify
 
+from functions import correct_target
+
 # set to True to inform that the app needs to be re-created
 to_reload = False
 
@@ -32,23 +34,26 @@ def get_app():
         if request.method == 'GET':
             return "OCCANO", 200
 
-    @app.route('/train', methods=['GET'])
-    def get_predictions():
+    @app.route('/train', methods=['POST'])
+    def _train():
 
-        if request.method in ['GET']:
+        if request.method in ['POST']:
             try:
                 start_time = time.time()
-                params = request.json['params']
-                vggish_features = request.json['vggish_features']
-                res = get_results(vggish_features, params)
+                manual_correction =  request.json["manual_correction"]
+                features = request.json['features']
+                predictions = request.json['predictions']
+
+                updated = correct_target(features,predictions, manual_correction)
 
 
-                response = jsonify(res)
+                response = jsonify({"updated":updated})
                 response.headers.add('Access-Control-Allow-Origin', '*')
 
-                print("analysis time performance: ", time.time() - start_time, " sec")
+                print("training time performance: ", time.time() - start_time, " sec")
 
                 return response
+
             except Exception as e:
                 logging.error(str(e))
                 print(str(e))
