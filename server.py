@@ -18,11 +18,12 @@ logging.basicConfig(filename="server.log",
 def get_app():
     app = Flask(__name__)
 
-    @app.route('/reload')
+    @app.route('/reload', methods=['GET'])
     def reload():
-        global to_reload
-        to_reload = True
-        return "reloaded"
+        if request.method == 'GET':
+            global to_reload
+            to_reload = True
+            return "reloaded"
 
     @app.route('/ping', methods=['GET'])
     def ping():
@@ -85,5 +86,4 @@ class AppReloader(object):
 application = AppReloader(get_app)
 
 if __name__ == '__main__':
-    run_simple('0.0.0.0', 5003, application,
-               use_reloader=True, use_debugger=True, use_evalex=True)
+    run_simple('0.0.0.0', 5003, application)

@@ -1,7 +1,7 @@
 from keras.layers import Input
+from keras.models import Model, load_model
 from keras.optimizers import Adam
 import keras.backend as K
-from keras.models import Model, load_model
 import numpy as np
 import os
 import pickle
