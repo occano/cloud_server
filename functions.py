@@ -70,7 +70,7 @@ def correct_target(features, predictions, manual_correction):
 
     }
     for lr in [0.001, 0.0001,0.00001, 0.000001, 0.0000001, 0.00000001]:
-        for epochs in [32,64,128]:
+        for epochs in [4,32,64]:
             target_model = load_model("resources/head_models/" + target + ".h5")
             optimizer = Adam(lr)
             for l in range(len(target_model.layers)-4):
@@ -139,13 +139,13 @@ def correct_target(features, predictions, manual_correction):
         # TODO save, generate master, return positive
         target_model.save("resources/head_models/" + target + ".h5")
         print ("new "+target +" model created and saved")
+        print("creating master model ...")
         regenerate_master_model()
         print("new master model created and saved")
-
+        K.clear_session()
         return True
 
     print("no better model found")
-
     return False
 
 
@@ -167,3 +167,4 @@ def regenerate_master_model():
     model.save("resources/head_models/master_model.h5")
 
     return
+

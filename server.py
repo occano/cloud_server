@@ -44,22 +44,26 @@ def get_app():
                 manual_correction =  request.json["manual_correction"]
                 features = request.json['features']
                 predictions = request.json['predictions']
+                if len(predictions) > 0 :
+                    if "additional_features" in predictions[-1].keys():
+                        updated = correct_target(features,predictions, manual_correction)
 
-                updated = correct_target(features,predictions, manual_correction)
+                        response = jsonify({"updated":updated})
+                        response.headers.add('Access-Control-Allow-Origin', '*')
+
+                        print("training time performance: ", time.time() - start_time, " sec")
+
+                        return response, 200
 
 
-                response = jsonify({"updated":updated})
-                response.headers.add('Access-Control-Allow-Origin', '*')
-
-                print("training time performance: ", time.time() - start_time, " sec")
-
-                return response
+                return "no additional features found", 202
 
             except Exception as e:
                 logging.error(str(e))
                 print(str(e))
                 return str(e), 202
 
+    print("server is up!")
     return app
 
 
