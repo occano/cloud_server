@@ -18,7 +18,7 @@ laboratory_dict = {
             "firing_pressure_mean": 'max_combustion_pressure',
             "imep_mean": 'mean_effective_pressure',
             "bmep_mean": 'break_mean_effective_presure',
-            "break_power_mean": 'break_power',
+            "break_power_sum": 'break_power',
             "power": 'power',
             "load": 'load',
             "vessel": 'vessel',
