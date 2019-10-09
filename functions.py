@@ -46,12 +46,25 @@ def correct_target(features, predictions, manual_correction):
         inputs1.append(np.array(i["vggish"]).reshape((5,128)))
         inputs2.append(predictions[-1]["additional_features"][0])
 
-
-    inputs = [np.array(inputs1), np.array(inputs2)]
-
     target = ui_dict[manual_correction["viewed_field"]]
 
     corrected = np.full((len(features)), float(manual_correction["manual_corrected_value"]))
+
+
+    try:
+        local_trainset = pickle.load(open("resources/head_models/local_" + target + "testset.p", "rb"))
+    except:
+        local_trainset = [[],[],[]]
+
+
+    local_trainset = [local_trainset[0] + inputs1, local_trainset[1] + inputs2,local_trainset[2] + corrected.tolist()]
+
+
+    pickle.dump( local_trainset, open( "resources/head_models/local_" + target + "testset.p", "wb"))
+
+    inputs = [np.array(local_trainset[0]),np.array(local_trainset[1])]
+    corrected = np.array(local_trainset[2])
+
 
     test_set = pickle.load(open("resources/head_models/"+target+"testset.p", "rb"))
 
@@ -59,9 +72,9 @@ def correct_target(features, predictions, manual_correction):
 
     test_set = list(test_set)
 
-    test_set[0][0] = np.array(test_set[0][0].tolist() + inputs1)
-    test_set[0][1] = np.array(test_set[0][1].tolist() +inputs2)
-    test_set[1] = np.array(test_set[1].tolist() + corrected.tolist())
+    test_set[0][0] = np.array(inputs[0].tolist())
+    test_set[0][1] = np.array(inputs[1].tolist())
+    test_set[1] = np.array(corrected.tolist())
 
 
     best_params = {
@@ -69,45 +82,46 @@ def correct_target(features, predictions, manual_correction):
         "min_new":np.inf
 
     }
-    for lr in [0.001, 0.0001,0.00001, 0.000001, 0.0000001, 0.00000001]:
-        for epochs in [4,32,64]:
-            target_model = load_model("resources/head_models/" + target + ".h5")
-            optimizer = Adam(lr)
-            for l in range(len(target_model.layers)-4):
-                target_model.layers[l].trainable = False
+    for lr in [0.1, 0.01, 0.001,0.0001, 0.00001, 0.000001, 0.0000001]:
+        for epochs in [1, 4,32,64]:
+            for batch_size in [4,16,32,64]:
+                target_model = load_model("resources/head_models/" + target + ".h5")
+                optimizer = Adam(lr)
 
 
-            target_model.compile(optimizer=optimizer, loss="mse", metrics=['mae', 'mape'])
+                target_model.compile(optimizer=optimizer, loss="mse", metrics=['mae', 'mape'])
 
-            _y_pred_current = target_model.predict(test_set[0]).flatten()
-            _y_pred_current_original = target_model.predict(original_testset[0]).flatten()
-
-
-            target_model.fit(inputs,corrected, epochs = epochs)
-
-            _y_pred_new = target_model.predict(test_set[0]).flatten()
-            _y_pred_original_new = target_model.predict(original_testset[0]).flatten()
+                _y_pred_current = target_model.predict(test_set[0]).flatten()
+                _y_pred_current_original = target_model.predict(original_testset[0]).flatten()
 
 
-            _y_true = test_set[1]
+                target_model.fit(inputs,corrected, epochs = epochs, batch_size=batch_size)
 
-            _y_pred_current_error = np.linalg.norm(_y_pred_current - _y_true)
-            _y_pred_current_original_error = np.linalg.norm(_y_pred_current_original - _y_true)
-
-            _y_pred_new_error = np.linalg.norm(_y_pred_new - _y_true)
-            _y_pred_new_original_error = np.linalg.norm(_y_pred_original_new - _y_true)
+                _y_pred_new = target_model.predict(test_set[0]).flatten()
+                _y_pred_original_new = target_model.predict(original_testset[0]).flatten()
 
 
-            if (_y_pred_current_error > _y_pred_new_error) and (_y_pred_current_original_error>_y_pred_new_original_error):
-                if (_y_pred_new_error < best_params["min_new"]) and (_y_pred_new_original_error<best_params["min_original"]) :
+                _y_true = test_set[1]
 
-                    best_params["epochs"] = epochs
-                    best_params["lr"] =lr
-                    best_params["min_new"] = _y_pred_new_error
-                    best_params["min_original"] = _y_pred_new_original_error
+                _y_pred_current_error = np.linalg.norm(_y_pred_current - _y_true)
+                _y_pred_current_original_error = np.linalg.norm(_y_pred_current_original - _y_true)
+
+                _y_pred_new_error = np.linalg.norm(_y_pred_new - _y_true)
+                _y_pred_new_original_error = np.linalg.norm(_y_pred_original_new - _y_true)
 
 
-            K.clear_session()
+                if (_y_pred_current_error > _y_pred_new_error) and (_y_pred_current_original_error>_y_pred_new_original_error):
+                    if (_y_pred_new_error < best_params["min_new"]) and (_y_pred_new_original_error<best_params["min_original"]) :
+
+                        best_params["epochs"] = epochs
+                        best_params["lr"] =lr
+                        best_params["batch_size"] = batch_size
+                        best_params["min_new"] = _y_pred_new_error
+                        best_params["original_error"] = _y_pred_current_error
+                        best_params["min_original"] = _y_pred_new_original_error
+
+
+                K.clear_session()
 
 
 
@@ -115,15 +129,15 @@ def correct_target(features, predictions, manual_correction):
     if "epochs" in best_params:
         target_model = load_model("resources/head_models/" + target + ".h5")
         optimizer = Adam(best_params["lr"])
-        for l in range(len(target_model.layers) - 4):
-            target_model.layers[l].trainable = False
+
+
 
         target_model.compile(optimizer=optimizer, loss="mse", metrics=['mae', 'mape'])
 
         _y_pred_current = target_model.predict(test_set[0]).flatten()
         _y_pred_current_original = target_model.predict(original_testset[0]).flatten()
 
-        target_model.fit(inputs, corrected, epochs=best_params["epochs"])
+        target_model.fit(inputs, corrected, epochs=best_params["epochs"],batch_size=best_params["batch_size"])
 
         _y_pred_new = target_model.predict(test_set[0]).flatten()
         _y_pred_original_new = target_model.predict(original_testset[0]).flatten()
@@ -136,9 +150,10 @@ def correct_target(features, predictions, manual_correction):
         _y_pred_new_error = np.linalg.norm(_y_pred_new - _y_true)
         _y_pred_new_original_error = np.linalg.norm(_y_pred_original_new - _y_true)
 
-        # TODO save, generate master, return positive
         target_model.save("resources/head_models/" + target + ".h5")
-        print ("new "+target +" model created and saved")
+        print("new "+target +" model created and saved")
+        print("dataset: ", inputs[0].shape)
+        print("best params: ", best_params)
         print("creating master model ...")
         regenerate_master_model()
         print("new master model created and saved")
