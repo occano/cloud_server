@@ -1,185 +1,100 @@
-from keras.layers import Input
-from keras.models import Model, load_model
-from keras.optimizers import Adam
-import keras.backend as K
+import datetime
+
+import plotly.graph_objects as go
 import numpy as np
-import os
-import pickle
 
 
-laboratory_dict = {
-            "engine_speed_mean": 'rpm',
-            "Torque_engine_total": "Torque",
-            "scavenging_pressure_mean": "scavenging_pressure",
-            "fuel_flow_rate_mean": 'fuel_flow_rate',
-            "injection_timing_mean": 'injection_timing',
-            "exhaust_temperature_mean": 'exhaust_gas_temperature',
-            "compression_pressure_mean": 'pressure_compression',
-            "firing_pressure_mean": 'max_combustion_pressure',
-            "imep_mean": 'mean_effective_pressure',
-            "bmep_mean": 'break_mean_effective_presure',
-            "break_power_sum": 'break_power',
-            "power": 'power',
-            "load": 'load',
-            "vessel": 'vessel',
-            "engine": 'engine'
-        }
 
-ui_dict = {v: k for k, v in laboratory_dict.items()}
 
-
-
-def get_available_targets():
-    available_targets = []
-    files = os.listdir("resources/head_models")
-    for i in files:
-        if (".h5" in i) and ("model" not in i):
-            available_targets.append(i[:i.index(".h5")])
-
-    return available_targets
-
-
-def correct_target(features, predictions, manual_correction):
-    inputs1 = []
-    inputs2 = []
-    for i in features:
-        inputs1.append(np.array(i["vggish"]).reshape((5,128)))
-        inputs2.append(predictions[-1]["additional_features"][0])
-
-    target = ui_dict[manual_correction["viewed_field"]]
-
-    corrected = np.full((len(features)), float(manual_correction["manual_corrected_value"]))
-
-
-    try:
-        local_trainset = pickle.load(open("resources/head_models/local_" + target + "testset.p", "rb"))
-    except:
-        local_trainset = [[],[],[]]
-
-
-    local_trainset = [local_trainset[0] + inputs1, local_trainset[1] + inputs2,local_trainset[2] + corrected.tolist()]
-
-
-    pickle.dump( local_trainset, open( "resources/head_models/local_" + target + "testset.p", "wb"))
-
-    inputs = [np.array(local_trainset[0]),np.array(local_trainset[1])]
-    corrected = np.array(local_trainset[2])
-
-
-    test_set = pickle.load(open("resources/head_models/"+target+"testset.p", "rb"))
-
-    original_testset = test_set
-
-    test_set = list(test_set)
-
-    test_set[0][0] = np.array(inputs[0].tolist())
-    test_set[0][1] = np.array(inputs[1].tolist())
-    test_set[1] = np.array(corrected.tolist())
-
-
-    best_params = {
-        "min_original":np.inf,
-        "min_new":np.inf
-
-    }
-    for lr in [0.1, 0.01, 0.001,0.0001, 0.00001, 0.000001, 0.0000001]:
-        for epochs in [1, 4,32,64]:
-            for batch_size in [4,16,32,64]:
-                target_model = load_model("resources/head_models/" + target + ".h5")
-                optimizer = Adam(lr)
-
-
-                target_model.compile(optimizer=optimizer, loss="mse", metrics=['mae', 'mape'])
-
-                _y_pred_current = target_model.predict(test_set[0]).flatten()
-                _y_pred_current_original = target_model.predict(original_testset[0]).flatten()
-
-
-                target_model.fit(inputs,corrected, epochs = epochs, batch_size=batch_size)
-
-                _y_pred_new = target_model.predict(test_set[0]).flatten()
-                _y_pred_original_new = target_model.predict(original_testset[0]).flatten()
-
-
-                _y_true = test_set[1]
-
-                _y_pred_current_error = np.linalg.norm(_y_pred_current - _y_true)
-                _y_pred_current_original_error = np.linalg.norm(_y_pred_current_original - _y_true)
-
-                _y_pred_new_error = np.linalg.norm(_y_pred_new - _y_true)
-                _y_pred_new_original_error = np.linalg.norm(_y_pred_original_new - _y_true)
-
-
-                if (_y_pred_current_error > _y_pred_new_error) and (_y_pred_current_original_error>_y_pred_new_original_error):
-                    if (_y_pred_new_error < best_params["min_new"]) and (_y_pred_new_original_error<best_params["min_original"]) :
-
-                        best_params["epochs"] = epochs
-                        best_params["lr"] =lr
-                        best_params["batch_size"] = batch_size
-                        best_params["min_new"] = _y_pred_new_error
-                        best_params["original_error"] = _y_pred_current_error
-                        best_params["min_original"] = _y_pred_new_original_error
-
-
-                K.clear_session()
-
-
-
-
-    if "epochs" in best_params:
-        target_model = load_model("resources/head_models/" + target + ".h5")
-        optimizer = Adam(best_params["lr"])
-
-
-
-        target_model.compile(optimizer=optimizer, loss="mse", metrics=['mae', 'mape'])
-
-        _y_pred_current = target_model.predict(test_set[0]).flatten()
-        _y_pred_current_original = target_model.predict(original_testset[0]).flatten()
-
-        target_model.fit(inputs, corrected, epochs=best_params["epochs"],batch_size=best_params["batch_size"])
-
-        _y_pred_new = target_model.predict(test_set[0]).flatten()
-        _y_pred_original_new = target_model.predict(original_testset[0]).flatten()
-
-        _y_true = test_set[1]
-
-        _y_pred_current_error = np.linalg.norm(_y_pred_current - _y_true)
-        _y_pred_current_original_error = np.linalg.norm(_y_pred_current_original - _y_true)
-
-        _y_pred_new_error = np.linalg.norm(_y_pred_new - _y_true)
-        _y_pred_new_original_error = np.linalg.norm(_y_pred_original_new - _y_true)
-
-        target_model.save("resources/head_models/" + target + ".h5")
-        print("new "+target +" model created and saved")
-        print("dataset: ", inputs[0].shape)
-        print("best params: ", best_params)
-        print("creating master model ...")
-        regenerate_master_model()
-        print("new master model created and saved")
-        K.clear_session()
-        return True
-
-    print("no better model found")
-    return False
-
-
-def regenerate_master_model():
-    pre_trained_list = get_available_targets()
-    models = {}
-
-    layers = {}
-    vggish_input = Input(shape=(5, 128), name='vggish0_input')
-    vessel_input = Input(shape=(6,), name='vessel0_input')
-
-    for target in pre_trained_list:
-        models[target] = load_model("resources/head_models/" + target + ".h5")
-        layers[target] = (models[target])([vggish_input, vessel_input])
-        layers[target].trainable = False
-
-    model = Model(inputs=[vggish_input, vessel_input], outputs=list(layers.values()))
-
-    model.save("resources/head_models/master_model.h5")
-
-    return
-
+analysis = {'cylinders': {'0': {'Torque_engine': {'value': 47734.56, 'std': -0.0, 'avg': 47988.11}, 'load': {'value': 31.98, 'std': -0.0, 'avg': 32.07}, 'firing_pressure': {'value': 111.96, 'std': -0.0, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.62, 'std': -0.0, 'avg': 0.62}, 'compression_pressure': {'value': 86.99, 'std': 0.0, 'avg': 86.86}, 'break_power': {'value': 908.48, 'std': 0.0, 'avg': 908.06}, 'imep': {'value': 15.29, 'std': -0.01, 'avg': 15.32}, 'bmep': {'value': 11.38, 'std': 0.01, 'avg': 11.27}, 'injection_timing': {'value': 1.55, 'std': 0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 275.57, 'std': 0.01, 'avg': 272.42}, 'fuel_flow_rate': {'value': 284.71, 'std': 0.01, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '1': {'Torque_engine': {'value': 50055.44, 'std': 0.02, 'avg': 47988.11}, 'load': {'value': 33.43, 'std': 0.02, 'avg': 32.07}, 'firing_pressure': {'value': 112.87, 'std': 0.02, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.65, 'std': 0.02, 'avg': 0.62}, 'compression_pressure': {'value': 87.67, 'std': 0.02, 'avg': 86.86}, 'break_power': {'value': 1069.02, 'std': 0.02, 'avg': 908.06}, 'imep': {'value': 15.43, 'std': 0.02, 'avg': 15.32}, 'bmep': {'value': 11.29, 'std': 0.0, 'avg': 11.27}, 'injection_timing': {'value': 1.54, 'std': 0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 273.46, 'std': -0.0, 'avg': 272.42}, 'fuel_flow_rate': {'value': 286.77, 'std': 0.01, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '2': {'Torque_engine': {'value': 45352.84, 'std': -0.02, 'avg': 47988.11}, 'load': {'value': 30.36, 'std': -0.02, 'avg': 32.07}, 'firing_pressure': {'value': 111.4, 'std': -0.02, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.59, 'std': -0.03, 'avg': 0.62}, 'compression_pressure': {'value': 85.46, 'std': -0.03, 'avg': 86.86}, 'break_power': {'value': 710.25, 'std': -0.02, 'avg': 908.06}, 'imep': {'value': 15.19, 'std': -0.03, 'avg': 15.32}, 'bmep': {'value': 11.36, 'std': 0.01, 'avg': 11.27}, 'injection_timing': {'value': 1.52, 'std': -0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 272.03, 'std': 0.0, 'avg': 272.42}, 'fuel_flow_rate': {'value': 278.07, 'std': -0.02, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '3': {'Torque_engine': {'value': 49010.19, 'std': 0.01, 'avg': 47988.11}, 'load': {'value': 33.06, 'std': 0.01, 'avg': 32.07}, 'firing_pressure': {'value': 112.4, 'std': 0.01, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.62, 'std': 0.0, 'avg': 0.62}, 'compression_pressure': {'value': 87.6, 'std': 0.01, 'avg': 86.86}, 'break_power': {'value': 1033.42, 'std': 0.01, 'avg': 908.06}, 'imep': {'value': 15.29, 'std': -0.0, 'avg': 15.32}, 'bmep': {'value': 11.46, 'std': 0.01, 'avg': 11.27}, 'injection_timing': {'value': 1.55, 'std': 0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 277.96, 'std': 0.02, 'avg': 272.42}, 'fuel_flow_rate': {'value': 286.51, 'std': 0.01, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '4': {'Torque_engine': {'value': 49793.36, 'std': 0.02, 'avg': 47988.11}, 'load': {'value': 33.26, 'std': 0.02, 'avg': 32.07}, 'firing_pressure': {'value': 112.55, 'std': 0.01, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.64, 'std': 0.01, 'avg': 0.62}, 'compression_pressure': {'value': 87.12, 'std': 0.0, 'avg': 86.86}, 'break_power': {'value': 1018.96, 'std': 0.01, 'avg': 908.06}, 'imep': {'value': 15.39, 'std': 0.01, 'avg': 15.32}, 'bmep': {'value': 11.4, 'std': 0.01, 'avg': 11.27}, 'injection_timing': {'value': 1.53, 'std': 0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 275.44, 'std': 0.01, 'avg': 272.42}, 'fuel_flow_rate': {'value': 284.67, 'std': 0.01, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '5': {'Torque_engine': {'value': 49777.68, 'std': 0.02, 'avg': 47988.11}, 'load': {'value': 33.35, 'std': 0.02, 'avg': 32.07}, 'firing_pressure': {'value': 113.03, 'std': 0.02, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.64, 'std': 0.01, 'avg': 0.62}, 'compression_pressure': {'value': 87.27, 'std': 0.01, 'avg': 86.86}, 'break_power': {'value': 1050.71, 'std': 0.02, 'avg': 908.06}, 'imep': {'value': 15.4, 'std': 0.02, 'avg': 15.32}, 'bmep': {'value': 11.19, 'std': 0.0, 'avg': 11.27}, 'injection_timing': {'value': 1.52, 'std': -0.0, 'avg': 1.53}, 'exhaust_temperature': {'value': 269.53, 'std': -0.0, 'avg': 272.42}, 'fuel_flow_rate': {'value': 284.24, 'std': 0.0, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '6': {'Torque_engine': {'value': 45541.72, 'std': -0.02, 'avg': 47988.11}, 'load': {'value': 30.16, 'std': -0.03, 'avg': 32.07}, 'firing_pressure': {'value': 111.05, 'std': -0.02, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.62, 'std': -0.0, 'avg': 0.62}, 'compression_pressure': {'value': 86.54, 'std': -0.01, 'avg': 86.86}, 'break_power': {'value': 691.16, 'std': -0.03, 'avg': 908.06}, 'imep': {'value': 15.24, 'std': -0.01, 'avg': 15.32}, 'bmep': {'value': 10.89, 'std': -0.04, 'avg': 11.27}, 'injection_timing': {'value': 1.52, 'std': -0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 265.92, 'std': -0.02, 'avg': 272.42}, 'fuel_flow_rate': {'value': 283.54, 'std': -0.0, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}, '7': {'Torque_engine': {'value': 46639.06, 'std': -0.01, 'avg': 47988.11}, 'load': {'value': 30.97, 'std': -0.02, 'avg': 32.07}, 'firing_pressure': {'value': 111.78, 'std': -0.01, 'avg': 112.13}, 'scavenging_pressure': {'value': 0.62, 'std': -0.01, 'avg': 0.62}, 'compression_pressure': {'value': 86.22, 'std': -0.01, 'avg': 86.86}, 'break_power': {'value': 782.47, 'std': -0.01, 'avg': 908.06}, 'imep': {'value': 15.3, 'std': -0.01, 'avg': 15.32}, 'bmep': {'value': 11.19, 'std': -0.01, 'avg': 11.27}, 'injection_timing': {'value': 1.52, 'std': -0.01, 'avg': 1.53}, 'exhaust_temperature': {'value': 269.48, 'std': -0.01, 'avg': 272.42}, 'fuel_flow_rate': {'value': 281.33, 'std': -0.01, 'avg': 283.73}, 'engine_speed_mean': {'value': 49.08, 'std': 0.0, 'avg': 49.08}}}, 'insights': [{'type': 'alert', 'location': 'cylinder #3', 'description': 'Scavenging Air Pressure at -0.03 std away from best performance', 'labels': {'Average Scavenging Air Pressure': 0.62, 'Scavenging Air Pressure': 0.59}}, {'type': 'alert', 'location': 'cylinder #3', 'description': 'Compression Pressure at -0.03 std away from best performance', 'labels': {'Average Compression Pressure': 86.86, 'Compression Pressure': 85.46}}, {'type': 'alert', 'location': 'cylinder #3', 'description': 'IMEP at -0.03 std away from best performance', 'labels': {'Average IMEP': 15.32, 'IMEP': 15.19}}, {'type': 'alert', 'location': 'cylinder #7', 'description': 'Load at -0.03 std away from best performance', 'labels': {'Average Load': 32.07, 'Load': 30.16}}, {'type': 'alert', 'location': 'cylinder #7', 'description': 'Break Power at -0.03 std away from best performance', 'labels': {'Average Break Power': 908.06, 'Break Power': 691.16}}, {'type': 'alert', 'location': 'cylinder #7', 'description': 'BMEP at -0.04 std away from best performance', 'labels': {'Average BMEP': 11.27, 'BMEP': 10.89}}]}
+ais_reports = [{'MMSI': '428041000', 'STATUS': '0', 'SPEED': '153', 'LON': '34.533620', 'LAT': '32.018000', 'COURSE': '19', 'HEADING': '16', 'TIMESTAMP': '2020-02-19T14:42:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '273', 'WIND_SPEED': '17', 'WIND_TEMP': '18'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '151', 'LON': '34.615350', 'LAT': '32.263010', 'COURSE': '13', 'HEADING': '12', 'TIMESTAMP': '2020-02-19T15:42:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '287', 'WIND_SPEED': '12', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '154', 'LON': '34.704140', 'LAT': '32.508280', 'COURSE': '17', 'HEADING': '17', 'TIMESTAMP': '2020-02-19T16:42:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '346', 'WIND_SPEED': '10', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '160', 'LON': '34.782640', 'LAT': '32.754320', 'COURSE': '20', 'HEADING': '18', 'TIMESTAMP': '2020-02-19T17:41:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '350', 'WIND_SPEED': '10', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '112', 'LON': '34.959960', 'LAT': '32.889200', 'COURSE': '95', 'HEADING': '94', 'TIMESTAMP': '2020-02-19T18:41:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '350', 'WIND_SPEED': '9', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '1', 'SPEED': '1', 'LON': '34.997550', 'LAT': '32.894200', 'COURSE': '316', 'HEADING': '272', 'TIMESTAMP': '2020-02-19T19:46:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '333', 'WIND_SPEED': '10', 'WIND_TEMP': '18'}, {'MMSI': '428041000', 'STATUS': '1', 'SPEED': '1', 'LON': '34.997600', 'LAT': '32.893420', 'COURSE': '354', 'HEADING': '292', 'TIMESTAMP': '2020-02-19T20:46:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '333', 'WIND_SPEED': '10', 'WIND_TEMP': '18'}, {'MMSI': '428041000', 'STATUS': '1', 'SPEED': '1', 'LON': '34.997480', 'LAT': '32.892780', 'COURSE': '244', 'HEADING': '307', 'TIMESTAMP': '2020-02-19T21:46:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '333', 'WIND_SPEED': '10', 'WIND_TEMP': '18'}]
+metadata = {'vessel': 'ZIM Tarragona', 'm_e': 'MAN 8K90MC-C6', 'displacement_engine': 11705.6, 'Number of cylinders': 8, 'Stroke/bore ratio': 'k', 'Diameter of piston in cm': 90, 'Concept': 'c', 'Design': 'c', 'AIS Vessel Type': 'Container Ship', 'Year Built': 2010, 'Length Overall': 261.06, 'Breadth Extreme': 32.3, 'Deadweight': 50088, 'Gross Tonnage': 40542, 'imo': 9471214, 'date': datetime.datetime(2020, 2, 19, 17, 34, 28, 458000)}
+
+
+
+def plot_map(analysis,metadata,args,ais_reports):
+    plot = None
+    # MAP
+    fig = go.Figure()
+
+    lat = []
+    lon = []
+    text = []
+    for ais_report in ais_reports:
+        lat.append(float(ais_report["LAT"]))
+        lon.append(float(ais_report["LON"]))
+        text.append({
+            'SPEED': ais_report["SPEED"],
+            'LON': ais_report["LON"],
+            'LAT': ais_report["LAT"],
+             'COURSE': ais_report["COURSE"],
+            'HEADING': ais_report["HEADING"],
+            'TIMESTAMP': ais_report["TIMESTAMP"],
+            'WIND_ANGLE': ais_report["WIND_ANGLE"],
+            'WIND_SPEED': ais_report["WIND_SPEED"],
+            'WIND_TEMP': ais_report["WIND_TEMP"]
+        })
+    fig.add_trace(go.Scattermapbox(
+        mode="markers+lines",
+        lon=lon,
+        lat=lat,
+        text=text,
+        marker={'size': 10})
+    )
+    fig.update_layout(
+        mapbox={
+            'center': {'lon': int((lon[0] + lon[-1]) / 2),
+                       'lat': int((lat[0] + lon[-1]) / 2)},
+            'style': "stamen-terrain",
+            'zoom': 5})
+
+    fig.write_html("plots/plot.html")
+    return "plots/plot.html"
+
+def plot_quick_view(analysis,metadata,args,ais_reports):
+    fig = go.Figure()
+
+
+    # QUICK VIEW
+
+
+
+    types = []
+    descriptions = []
+    locations = []
+    colors = []
+    dates = []
+    labels = []
+    for insight in analysis["insights"]:
+        types.append(insight["type"])
+        dates.append(str(metadata["date"]))
+        descriptions.append(insight["description"])
+        locations.append(insight["location"])
+        labels.append(', '.join([key+": "+str(value) for key,value in insight["labels"].items()]))
+        if insight["type"] == "alert":
+            colors.append(["rgb(255, 200, 200)",'white','white','white'])
+
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=["TYPE","DATE","LOCATION", "DESCRIPTION","DATA"],
+                line_color='white', fill_color='white',
+                align='center', font=dict(color='black', size=20)
+            ),
+            cells=dict(
+                values=[types, dates,locations,descriptions,labels],
+                fill_color=np.array(colors).T,
+                height=30,
+                align=['center','center','center','left'], font=dict(color='black', size=16)
+            ))
+    )
+
+    fig.write_html("plots/plot.html")
+    return "plots/plot.html"
+def get_plot(args):
+    plot = None
+    if args["type"] == "map":
+        plot = plot_map(analysis,metadata,args,ais_reports)
+    elif args["type"] == "quick_view":
+        plot = plot_quick_view(analysis, metadata, args, ais_reports)
+    return plot

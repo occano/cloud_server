@@ -1,4 +1,5 @@
 Flask
-keras
 requests
-tensorflow
+plotly
+dash
+numpy
