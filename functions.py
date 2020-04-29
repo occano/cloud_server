@@ -20,7 +20,7 @@ def log_function(p, curve):
 
     return x
 
-def get_pressure_angular(p_comp,p_fire):
+def get_pressure_angular(p_comp,p_fire,angle):
 
     data = [p_comp,p_fire]
 
@@ -28,20 +28,21 @@ def get_pressure_angular(p_comp,p_fire):
 
     curve = curve / 10
 
-    t1 = np.linspace(0, log_function(p_comp,curve), 180)
+    burst = int(np.degrees(angle * 2))
+    t1 = np.linspace(0, log_function(p_comp,curve),burst)
     y1 = [math.pow(math.e * curve,x ) for x in t1]
 
-    t2 = np.linspace(t1[-1], log_function(0.975*p_comp, curve), 5)
+    t2 = np.linspace(t1[-1], log_function(0.975*p_comp, curve), 185-burst)
     y2 = [(math.pow(math.e * curve, x)) for x in t2]
 
     t3 = np.linspace(t2[-1], log_function(p_fire, curve), 5)
     y3 = [(math.pow(math.e * curve, x)) for x in t3]
 
-    t4 = np.linspace(t3[-1], log_function(1, curve), 179)
+    t4 = np.linspace(t3[-1], log_function(1, curve), 170)
     y4 = [(math.pow(math.e * curve, x)) for x in t4]
 
 
-    graph = y1+y2[1:]+y3[1:]+y4[1:]
+    graph = y1+y2+y3+y4
 
     import plotly.graph_objects as go
 
@@ -189,7 +190,7 @@ def plot_cylinder(analysis,metadata,args):
     counter = args["cylinder_num"] - 1
 
     fig = go.Figure()
-    x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"])
+    x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"],analysis["cylinders"][str(counter)]["injection_timing"]["value"])
     fig.add_trace(
         go.Barpolar(theta=x, r=graph)
     )
@@ -206,11 +207,11 @@ def plot_pressure_angular(analysis,metadata,args):
     fig = go.Figure()
     counter = 0
     for i in range(len(list(analysis["cylinders"].keys()))):
-        x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"])
+        x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"],analysis["cylinders"][str(counter)]["injection_timing"]["value"])
         counter += 1
         # PREESURE ANGULAR
         fig.add_trace(
-            go.Scatter(x=x, y=graph,name="CYLINDER # "+str(counter+1))
+            go.Scatter(x=x, y=graph,name="CYLINDER # "+str(counter))
         )
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
@@ -247,3 +248,5 @@ if __name__ == "__main__":
             for i in range(len(list(analysis["cylinders"].keys()))):
                 args["cylinder_num"] = i + 1
                 get_plot(args)
+        else:
+            get_plot(args)
