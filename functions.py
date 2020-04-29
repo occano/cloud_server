@@ -187,7 +187,7 @@ def plot_cylinder(analysis,metadata,args):
 
 
 
-    counter = args["cylinder_num"] - 1
+    counter = int(args["cylinder_num"]) - 1
 
     fig = go.Figure()
     x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"],analysis["cylinders"][str(counter)]["injection_timing"]["value"])
