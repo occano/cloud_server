@@ -11,6 +11,7 @@ app = Flask(__name__)
 @app.route('/ping', methods=['POST','GET'])
 def ping():
     return 'P0NG',200
+
 @app.route('/plots', methods=['GET'])
 def plots():
     if request.method == 'GET':

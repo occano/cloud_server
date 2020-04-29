@@ -1,4 +1,6 @@
 import datetime
+import json
+import math
 
 import plotly.graph_objects as go
 import numpy as np
@@ -10,6 +12,46 @@ analysis = {'cylinders': {'0': {'Torque_engine': {'value': 47734.56, 'std': -0.0
 ais_reports = [{'MMSI': '428041000', 'STATUS': '0', 'SPEED': '153', 'LON': '34.533620', 'LAT': '32.018000', 'COURSE': '19', 'HEADING': '16', 'TIMESTAMP': '2020-02-19T14:42:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '273', 'WIND_SPEED': '17', 'WIND_TEMP': '18'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '151', 'LON': '34.615350', 'LAT': '32.263010', 'COURSE': '13', 'HEADING': '12', 'TIMESTAMP': '2020-02-19T15:42:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '287', 'WIND_SPEED': '12', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '154', 'LON': '34.704140', 'LAT': '32.508280', 'COURSE': '17', 'HEADING': '17', 'TIMESTAMP': '2020-02-19T16:42:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '346', 'WIND_SPEED': '10', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '160', 'LON': '34.782640', 'LAT': '32.754320', 'COURSE': '20', 'HEADING': '18', 'TIMESTAMP': '2020-02-19T17:41:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '350', 'WIND_SPEED': '10', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '0', 'SPEED': '112', 'LON': '34.959960', 'LAT': '32.889200', 'COURSE': '95', 'HEADING': '94', 'TIMESTAMP': '2020-02-19T18:41:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '350', 'WIND_SPEED': '9', 'WIND_TEMP': '17'}, {'MMSI': '428041000', 'STATUS': '1', 'SPEED': '1', 'LON': '34.997550', 'LAT': '32.894200', 'COURSE': '316', 'HEADING': '272', 'TIMESTAMP': '2020-02-19T19:46:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '333', 'WIND_SPEED': '10', 'WIND_TEMP': '18'}, {'MMSI': '428041000', 'STATUS': '1', 'SPEED': '1', 'LON': '34.997600', 'LAT': '32.893420', 'COURSE': '354', 'HEADING': '292', 'TIMESTAMP': '2020-02-19T20:46:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '333', 'WIND_SPEED': '10', 'WIND_TEMP': '18'}, {'MMSI': '428041000', 'STATUS': '1', 'SPEED': '1', 'LON': '34.997480', 'LAT': '32.892780', 'COURSE': '244', 'HEADING': '307', 'TIMESTAMP': '2020-02-19T21:46:00', 'SHIP_ID': '659948', 'WIND_ANGLE': '333', 'WIND_SPEED': '10', 'WIND_TEMP': '18'}]
 metadata = {'vessel': 'ZIM Tarragona', 'm_e': 'MAN 8K90MC-C6', 'displacement_engine': 11705.6, 'Number of cylinders': 8, 'Stroke/bore ratio': 'k', 'Diameter of piston in cm': 90, 'Concept': 'c', 'Design': 'c', 'AIS Vessel Type': 'Container Ship', 'Year Built': 2010, 'Length Overall': 261.06, 'Breadth Extreme': 32.3, 'Deadweight': 50088, 'Gross Tonnage': 40542, 'imo': 9471214, 'date': datetime.datetime(2020, 2, 19, 17, 34, 28, 458000)}
 
+params = json.loads(open('params.json').read())
+
+
+def log_function(p, curve):
+    x = math.log(p)/(1+math.log(curve))
+
+    return x
+
+def get_pressure_angular(p_comp,p_fire):
+
+    data = [p_comp,p_fire]
+
+    curve = (np.max(data) - np.min(data) /2)
+
+    curve = curve / 10
+
+    t1 = np.linspace(0, log_function(p_comp,curve), 180)
+    y1 = [math.pow(math.e * curve,x ) for x in t1]
+
+    t2 = np.linspace(t1[-1], log_function(0.975*p_comp, curve), 5)
+    y2 = [(math.pow(math.e * curve, x)) for x in t2]
+
+    t3 = np.linspace(t2[-1], log_function(p_fire, curve), 5)
+    y3 = [(math.pow(math.e * curve, x)) for x in t3]
+
+    t4 = np.linspace(t3[-1], log_function(1, curve), 179)
+    y4 = [(math.pow(math.e * curve, x)) for x in t4]
+
+
+    graph = y1+y2[1:]+y3[1:]+y4[1:]
+
+    import plotly.graph_objects as go
+
+    x = np.linspace(0,359, 360)
+
+    #fig = go.Figure(data=go.Scatter(x=x, y=graph))
+    #fig.show()
+
+
+    return x, graph
 
 
 def plot_map(analysis,metadata,args,ais_reports):
@@ -47,11 +89,14 @@ def plot_map(analysis,metadata,args,ais_reports):
                        'lat': int((lat[0] + lon[-1]) / 2)},
             'style': "stamen-terrain",
             'zoom': 5})
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+".html")
+    return "plots/"+args["type"]+".html"
 
-    fig.write_html("plots/plot.html")
-    return "plots/plot.html"
-
-def plot_quick_view(analysis,metadata,args,ais_reports):
+def plot_quick_view(analysis,metadata,args):
     fig = go.Figure()
 
 
@@ -88,13 +133,117 @@ def plot_quick_view(analysis,metadata,args,ais_reports):
                 align=['center','center','center','left'], font=dict(color='black', size=16)
             ))
     )
-
-    fig.write_html("plots/plot.html")
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+".html")
     return "plots/plot.html"
+
+def plot_snapshot(analysis,metadata,args):
+    fig = go.Figure()
+
+
+    # SnapShot
+    names = []
+    values = {x:[] for x in analysis["cylinders"]["1"].keys()}
+    parameters = list(values.keys())
+    parameters = [params["targets_names_refactor"][x] + " " + params["targets_measure"][x] for x in parameters]
+    for cylinder_index in analysis["cylinders"].keys():
+        names.append("Cylinder # "+str(int(cylinder_index)+1))
+        for key,value in analysis["cylinders"][cylinder_index].items():
+            values[key].append(value["value"])
+
+
+
+
+
+    fig.add_trace(
+        go.Table(
+            header=dict(
+                values=["PARAMETER"] + names,
+                line_color='white', fill_color='white',
+                align='center', font=dict(size=20)
+            ),
+            cells=dict(
+                values=[parameters] + list(np.array([val for val in values.values()]).T),
+                height=30,
+                font=dict( size=16)
+            ))
+    )
+
+
+
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+".html")
+    return "plots/"+args["type"]+".html"
+
+def plot_cylinder(analysis,metadata,args):
+
+
+
+
+    counter = args["cylinder_num"] - 1
+
+    fig = go.Figure()
+    x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"])
+    fig.add_trace(
+        go.Barpolar(theta=x, r=graph)
+    )
+
+
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+" - "+str(args["cylinder_num"])+".html")
+    return "plots/"+args["type"]+" - "+str(args["cylinder_num"])+".html"
+
+def plot_pressure_angular(analysis,metadata,args):
+    fig = go.Figure()
+    counter = 0
+    for i in range(len(list(analysis["cylinders"].keys()))):
+        x,graph = get_pressure_angular(analysis["cylinders"][str(counter)]['compression_pressure']["value"],analysis["cylinders"][str(counter)]['firing_pressure']["value"])
+        counter += 1
+        # PREESURE ANGULAR
+        fig.add_trace(
+            go.Scatter(x=x, y=graph,name="CYLINDER # "+str(counter+1))
+        )
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+".html")
+    return "plots/"+args["type"]+".html"
+
+
 def get_plot(args):
     plot = None
     if args["type"] == "map":
         plot = plot_map(analysis,metadata,args,ais_reports)
     elif args["type"] == "quick_view":
-        plot = plot_quick_view(analysis, metadata, args, ais_reports)
+        plot = plot_quick_view(analysis, metadata, args)
+    elif args["type"] == "snapshot":
+        plot = plot_snapshot(analysis, metadata, args)
+    elif args["type"] == "cylinder":
+        plot = plot_cylinder(analysis, metadata, args)
+    elif args["type"] == "pressure_angular":
+        plot = plot_pressure_angular(analysis, metadata, args)
     return plot
+
+if __name__ == "__main__":
+    types = ["map","quick_view","snapshot","cylinder","pressure_angular"]
+    for tp in types:
+        args = {
+            "type":tp,
+            "fromdate":"202002191600",
+            "todate":"202002192000",
+            "imo":9471214
+        }
+        if tp == "cylinder":
+            for i in range(len(list(analysis["cylinders"].keys()))):
+                args["cylinder_num"] = i + 1
+                get_plot(args)

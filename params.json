@@ -1,0 +1,92 @@
+{
+  "vessels" : [
+  "ANAFI WARRIOR",
+  "GREEN WARRIOR",
+  "PATMOS WARRIOR",
+  "SYROS WARRIOR",
+  "DILIGENT WARRIOR",
+  "FAITHFUL WARRIOR",
+  "RELIABLE WARRIOR"
+  ],
+  "targets" : [
+  "Torque_engine_total",
+  "load",
+  "firing_pressure_mean",
+  "scavenging_pressure_mean",
+  "compression_pressure_mean",
+  "break_power_sum",
+  "imep_mean",
+  "bmep_mean",
+  "injection_timing_mean",
+  "exhaust_temperature_mean",
+  "fuel_flow_rate_mean"
+  ],
+  "targets_refactor" : {
+    "Torque_engine": -12000,
+    "load": 7,
+    "firing_pressure": 50,
+    "scavenging_pressure": -1.45,
+    "compression_pressure": -100,
+    "break_power": -5900,
+    "imep": 12,
+    "bmep": 7,
+    "injection_timing": -1.5,
+    "exhaust_temperature": -220,
+    "fuel_flow_rate": -400,
+    "engine_speed_mean": 0
+  },
+    "targets_names_refactor" : {
+    "Torque_engine": "Torque",
+    "load": "Load",
+    "firing_pressure": "Firing Pressure",
+    "scavenging_pressure": "Scavenging Air Pressure",
+    "compression_pressure": "Compression Pressure",
+    "break_power": "Break Power",
+    "imep": "IMEP",
+    "bmep": "BMEP",
+    "injection_timing": "Injection Timing",
+    "exhaust_temperature": "Exhaust Temperature",
+    "fuel_flow_rate": "BSFC",
+      "engine_speed_mean": "RPM"
+  },
+      "targets_measure" : {
+    "Torque_engine": "kn/m",
+    "load": "%",
+    "firing_pressure": "(BAR)",
+    "scavenging_pressure": "(BAR)",
+    "compression_pressure": "(BAR)",
+    "break_power": "",
+    "imep": "",
+    "bmep": "",
+    "injection_timing": "(deg)",
+    "exhaust_temperature": "(C)",
+    "fuel_flow_rate": "",
+      "engine_speed_mean": ""
+  },
+  "vessel_imo" : 9370848,
+
+  "training_params" : {
+    "batch_size": 32,
+    "num_of_epochs": 50,
+    "patience": 11
+  },
+
+
+  "network_parmas" : {
+        "mel_input":{
+            "input_dim":[128,50],
+            "kernel_size": 30,
+            "filters" :64,
+            "pool_size" : 4
+        },
+        "vessel_input": {
+            "input_name": "vessel_input",
+            "input_dim": [6]
+        },
+        "naive_input": {
+            "input_name": "naive_input",
+            "input_dim": [4]
+        }
+    }
+
+}
