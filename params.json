@@ -64,6 +64,9 @@
       "engine_speed_mean": ""
   },
   "vessel_imo" : 9370848,
+  "firing_order": {
+    "8": [1,8,4,3,6,5,7,2]
+  },
 
   "training_params" : {
     "batch_size": 32,

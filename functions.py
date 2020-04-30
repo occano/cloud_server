@@ -199,6 +199,12 @@ def plot_cylinder(analysis,metadata,args):
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="LightSteelBlue",
+        polar=dict(
+            angularaxis=dict(
+                rotation=params["firing_order"][str(len(list(analysis["cylinders"].keys())))].index(int(args["cylinder_num"])) * 45,
+                direction="clockwise"
+            )
+        )
     )
     fig.write_html("plots/"+args["type"]+" - "+str(args["cylinder_num"])+".html")
     return "plots/"+args["type"]+" - "+str(args["cylinder_num"])+".html"
