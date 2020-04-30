@@ -89,7 +89,7 @@ def plot_map(analysis,metadata,args,ais_reports):
             'center': {'lon': int((lon[0] + lon[-1]) / 2),
                        'lat': int((lat[0] + lon[-1]) / 2)},
             'style': "stamen-terrain",
-            'zoom': 5})
+            'zoom': 8})
     fig.update_layout(
         margin=dict(l=0, r=0, t=0, b=0),
         paper_bgcolor="LightSteelBlue",
