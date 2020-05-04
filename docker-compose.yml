@@ -1,0 +1,14 @@
+version: '2'
+services:
+  gate:
+    restart: always
+    build: ./gate/
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+  web:
+    build: ./
+    ports:
+      - 9292:8000
