@@ -26,7 +26,7 @@ def plots():
             return send_file(plot)
         except Exception as e:
             print(e)
-            return "Error, Ask Nir for help", 500
+            return str(e), 500
 
 
 if __name__ == '__main__':
