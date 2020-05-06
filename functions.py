@@ -1,9 +1,11 @@
 import datetime
 import json
 import math
+import os
 
 import plotly.graph_objects as go
 import numpy as np
+
 
 
 
@@ -288,6 +290,9 @@ def plot_report_details(args):
     return "plots/"+args["type"]+".html"
 
 def get_plot(args):
+    plots = os.listdir("plots/")
+    if args["type"]+".html":
+        return "plots/"+args["type"]+".html"
     plot = None
     if args["type"] == "map":
         plot = plot_map(analysis,metadata,args,ais_reports)
