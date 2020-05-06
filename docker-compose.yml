@@ -9,6 +9,6 @@ services:
     volumes:
       - /etc/letsencrypt:/etc/letsencrypt
   web:
-    build: ./
+    image: occano/cloud-server
     ports:
-      - 9292:8000
+      - 8000:8000
