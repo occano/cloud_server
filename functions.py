@@ -20,6 +20,32 @@ def log_function(p, curve):
 
     return x
 
+
+def get_table(dataxy):
+    x = []
+    y = []
+    for key, value in dataxy.items():
+        x.append(key)
+        y.append(value)
+    values = [x,
+              y]
+
+    trace = go.Table(
+        columnorder=[1, 2],
+        columnwidth=[200, 400],
+        domain=dict(x=[0, 1.0],
+                    y=[0, 1.0]),
+        cells=dict(
+            values=values,
+            line=dict(color='#506784'),
+            fill=dict(color=['#25FEFD', 'white']),
+            align=['left', 'center'],
+            font=dict(color='#506784', size=18),
+            height=30
+        ))
+    return trace
+
+
 def get_pressure_angular(p_comp,p_fire,angle):
 
     data = [p_comp,p_fire]
@@ -226,6 +252,40 @@ def plot_pressure_angular(analysis,metadata,args):
     fig.write_html("plots/"+args["type"]+".html")
     return "plots/"+args["type"]+".html"
 
+def plot_vessel_details(metadata, args):
+    fig = go.Figure()
+
+    intro = get_table(metadata)
+    fig.add_trace(
+        intro
+    )
+
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+".html")
+    return "plots/"+args["type"]+".html"
+
+def plot_report_details(args):
+    fig = go.Figure()
+    report_details = {
+        "Strat:":"19/02/2020 16:00",
+        "End:": "19/02/202 20:00",
+        "From:": "ASHDOD",
+        "To:": "HAIFA",
+    }
+    report_trace = get_table(report_details)
+    fig.add_trace(
+        report_trace
+    )
+
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        paper_bgcolor="LightSteelBlue",
+    )
+    fig.write_html("plots/"+args["type"]+".html")
+    return "plots/"+args["type"]+".html"
 
 def get_plot(args):
     plot = None
@@ -239,6 +299,10 @@ def get_plot(args):
         plot = plot_cylinder(analysis, metadata, args)
     elif args["type"] == "pressure_angular":
         plot = plot_pressure_angular(analysis, metadata, args)
+    elif args["type"] == "vessel_details":
+        plot = plot_vessel_details(metadata,args)
+    elif args["type"] == "report_details":
+        plot = plot_report_details(args)
     return plot
 
 if __name__ == "__main__":
