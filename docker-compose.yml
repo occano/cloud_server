@@ -11,4 +11,4 @@ services:
   web:
     build: ./
     ports:
-      - 9292:8000
+      - 8000:8000
