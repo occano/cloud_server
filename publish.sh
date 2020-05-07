@@ -4,5 +4,4 @@ DOCKER_IMAGE=occano/cloud-server
 
 docker build -t $DOCKER_IMAGE .
 docker push $DOCKER_IMAGE
-docker-compose down
-docker-compose up
+ssh office.occano.io -p 2214 docker-compose pull && docker-compose down && docker-compose up
